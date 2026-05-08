@@ -13,7 +13,6 @@ import mujoco
 
 from in_hand_rotation_mjlab import MYMJLAB_SRC_PATH
 from mjlab.entity import EntityCfg
-from mjlab.utils.os import update_assets
 
 from in_hand_rotation_mjlab.robots.leap_hand.leap_right_constants import (
     configure_leap_spec_for_ideal_pd,
@@ -65,15 +64,18 @@ leap_left_custom_hand_XML: Path = (
 assert leap_left_custom_hand_XML.exists(), f"Missing MJCF: {leap_left_custom_hand_XML}"
 
 
+def _read_dir_as_assets(asset_dir: Path, meshdir: str) -> dict[str, bytes]:
+    prefix = meshdir.rstrip("/")
+    return {
+        (f"{prefix}/{f.name}" if prefix else f.name): f.read_bytes()
+        for f in asset_dir.iterdir()
+        if f.is_file()
+    }
+
+
 def get_assets(meshdir: str) -> dict[str, bytes]:
     """Embed mesh assets into MjSpec.assets."""
-    assets: dict[str, bytes] = {}
-    update_assets(
-        assets,
-        leap_left_custom_hand_XML.parent.parent / "assets",
-        meshdir,
-    )
-    return assets
+    return _read_dir_as_assets(leap_left_custom_hand_XML.parent / "assets", meshdir)
 
 
 def get_spec() -> mujoco.MjSpec:

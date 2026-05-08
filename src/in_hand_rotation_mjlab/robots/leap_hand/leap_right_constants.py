@@ -16,9 +16,8 @@ from math import pi
 import mujoco
 
 from in_hand_rotation_mjlab import MYMJLAB_SRC_PATH
-from mjlab.actuator import DelayedActuatorCfg, IdealPdActuatorCfg
+from mjlab.actuator import IdealPdActuatorCfg
 from mjlab.entity import EntityCfg, EntityArticulationInfoCfg
-from mjlab.utils.os import update_assets
 from mjlab.utils.spec_config import CollisionCfg
 
 
@@ -106,6 +105,15 @@ leap_hand_XML: Path = (
 assert leap_hand_XML.exists(), f"Missing MJCF: {leap_hand_XML}"
 
 
+def _read_dir_as_assets(asset_dir: Path, meshdir: str) -> dict[str, bytes]:
+    prefix = meshdir.rstrip("/")
+    return {
+        (f"{prefix}/{f.name}" if prefix else f.name): f.read_bytes()
+        for f in asset_dir.iterdir()
+        if f.is_file()
+    }
+
+
 def get_assets(meshdir: str) -> dict[str, bytes]:
     """
     Embed mesh assets into MjSpec.assets.
@@ -115,13 +123,7 @@ def get_assets(meshdir: str) -> dict[str, bytes]:
     - viser
     - distributed viewers
     """
-    assets: dict[str, bytes] = {}
-    update_assets(
-        assets,
-        leap_hand_XML.parent.parent / "assets",
-        meshdir,
-    )
-    return assets
+    return _read_dir_as_assets(leap_hand_XML.parent / "assets", meshdir)
 
 
 def get_spec() -> mujoco.MjSpec:
@@ -280,7 +282,7 @@ def _scaled(value: float, scale_map: dict[str, float], joint_name: str) -> float
     return value * scale_map.get(joint_name, 1.0)
 
 
-def _make_joint_actuator_cfg(joint_name: str) -> DelayedActuatorCfg:
+def _make_joint_actuator_cfg(joint_name: str) -> IdealPdActuatorCfg:
     base_cfg = IdealPdActuatorCfg(
         target_names_expr=(joint_name,),
         stiffness=_scaled(
@@ -308,16 +310,13 @@ def _make_joint_actuator_cfg(joint_name: str) -> DelayedActuatorCfg:
             LEAP_FRICTION_SCALE_BY_JOINT,
             joint_name,
         ),
-    )
-    return DelayedActuatorCfg(
-        base_cfg=base_cfg,
-        delay_target="position",
         delay_min_lag=LEAP_ACTION_DELAY_MIN_LAG,
         delay_max_lag=LEAP_ACTION_DELAY_MAX_LAG,
         delay_hold_prob=LEAP_ACTION_DELAY_HOLD_PROB,
         delay_update_period=LEAP_ACTION_DELAY_UPDATE_PERIOD,
         delay_per_env_phase=LEAP_ACTION_DELAY_PER_ENV_PHASE,
     )
+    return base_cfg
 
 
 LEAP_ACTUATORS = tuple(_make_joint_actuator_cfg(name) for name in LEAP_JOINT_ORDER)

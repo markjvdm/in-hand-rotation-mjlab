@@ -23,6 +23,37 @@ if TYPE_CHECKING:
 _DEFAULT_CUBE_CFG = SceneEntityCfg("cube", geom_names=("cube_geom",))
 
 
+def sync_actuator_delays(
+  env: ManagerBasedRlEnv,
+  env_ids: torch.Tensor | slice | None,
+  lag_range: tuple[int, int],
+  asset_cfg: SceneEntityCfg = SceneEntityCfg("robot", actuator_names=(".*",)),
+) -> None:
+  """Sample one lag per env and apply it to every delayed actuator on the asset.
+
+  Replaces ``mjlab.envs.mdp.sync_actuator_delays`` (removed in mjlab 1.2.0).
+  Uses the new ``Actuator.has_delay`` / ``Actuator.set_lags`` API.
+  """
+  asset: Entity = env.scene[asset_cfg.name]
+  env_ids = _resolve_env_ids(env, env_ids)
+  if len(env_ids) == 0:
+    return
+
+  delayed = [a for a in asset.actuators if a.has_delay]
+  if not delayed:
+    return
+
+  lags = torch.randint(
+    lag_range[0],
+    lag_range[1] + 1,
+    (len(env_ids),),
+    device=env.device,
+    dtype=torch.long,
+  )
+  for act in delayed:
+    act.set_lags(lags, env_ids)
+
+
 def _resolve_env_ids(
   env: ManagerBasedRlEnv, env_ids: torch.Tensor | slice | None
 ) -> torch.Tensor:
@@ -446,7 +477,6 @@ def set_actuator_effort_limits(
 ) -> None:
   """Set actuator effort limits and enable force limiting in MuJoCo."""
   from mjlab.actuator import IdealPdActuator
-  from mjlab.actuator.delayed_actuator import DelayedActuator
 
   env_ids = _resolve_env_ids(env, env_ids)
   if len(env_ids) == 0:
@@ -541,13 +571,10 @@ def set_actuator_effort_limits(
 
   ctrl_index = {int(cid.item()): i for i, cid in enumerate(ctrl_ids)}
   for actuator in actuators:
-    base_actuator = (
-      actuator.base_actuator if isinstance(actuator, DelayedActuator) else actuator
-    )
-    if not isinstance(base_actuator, IdealPdActuator):
+    if not isinstance(actuator, IdealPdActuator):
       continue
 
-    act_ctrl_ids = [int(cid.item()) for cid in base_actuator.global_ctrl_ids]
+    act_ctrl_ids = [int(cid.item()) for cid in actuator.global_ctrl_ids]
     cols = [ctrl_index[cid] for cid in act_ctrl_ids if cid in ctrl_index]
     if len(cols) == 0:
       continue
@@ -556,7 +583,7 @@ def set_actuator_effort_limits(
       act_limits = limits[:, cols]
     else:
       act_limits = limits[cols].unsqueeze(0).expand(len(env_ids), -1)
-    base_actuator.set_effort_limit(env_ids, effort_limit=act_limits)
+    actuator.set_effort_limit(env_ids, effort_limit=act_limits)
 
 
 def inject_random_cube_pose(

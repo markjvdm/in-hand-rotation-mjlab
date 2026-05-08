@@ -5,7 +5,7 @@ from typing import Any, Protocol
 import mujoco
 import torch
 
-from mjlab.actuator import DelayedActuatorCfg, IdealPdActuatorCfg
+from mjlab.actuator import IdealPdActuatorCfg
 from mjlab.envs.mdp.actions import (
   JointEffortActionCfg,
   JointPositionActionCfg,
@@ -183,27 +183,20 @@ class _BaseJointActionTerm:
     kd = torch.full((1, self._action_dim), float("nan"), device=self.device)
     effort_limit = torch.full((1, self._action_dim), float("nan"), device=self.device)
 
-    def _unwrap_cfg(cfg: Any) -> Any:
-      # DelayedActuatorCfg wraps the underlying actuator in base_cfg.
-      while isinstance(cfg, DelayedActuatorCfg):
-        cfg = cfg.base_cfg
-      return cfg
-
     for actuator_cfg in articulation.actuators:
-      base_cfg = _unwrap_cfg(actuator_cfg)
-      if not isinstance(base_cfg, IdealPdActuatorCfg):
+      if not isinstance(actuator_cfg, IdealPdActuatorCfg):
         continue
       local_ids, _ = resolve_matching_names(
-        base_cfg.target_names_expr,
+        actuator_cfg.target_names_expr,
         self.target_names,
         preserve_order=False,
       )
       if len(local_ids) == 0:
         continue
       ids_t = torch.tensor(local_ids, device=self.device, dtype=torch.long)
-      kp[:, ids_t] = float(base_cfg.stiffness)
-      kd[:, ids_t] = float(base_cfg.damping)
-      effort_limit[:, ids_t] = float(base_cfg.effort_limit)
+      kp[:, ids_t] = float(actuator_cfg.stiffness)
+      kd[:, ids_t] = float(actuator_cfg.damping)
+      effort_limit[:, ids_t] = float(actuator_cfg.effort_limit)
 
     if torch.any(torch.isnan(kp)) or torch.any(torch.isnan(kd)) or torch.any(
       torch.isnan(effort_limit)
