@@ -42,6 +42,7 @@ class object_pose_rp_position_deviation_from_reset:
     if env_ids is None:
       env_ids = slice(None)
 
+    # TODO: These values are zero after reset, which seems wrong.
     pos_w = self._asset.data.root_link_pos_w
     roll, pitch, _ = euler_xyz_from_quat(self._asset.data.root_link_quat_w)
     self._init_pos_w[env_ids] = pos_w[env_ids]

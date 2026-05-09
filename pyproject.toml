@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
   "mjlab",
   "pyzmq>=25",
+  "torch>=2.7.0",
 ]
 
 [tool.uv]
@@ -17,6 +18,13 @@ package = true
 
 [tool.uv.sources]
 mjlab = { git = "https://github.com/mujocolab/mjlab" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [tool.setuptools]
 package-dir = {"" = "src"}

@@ -262,14 +262,15 @@ def make_hand_cube_inhand_rotate_env_cfg() -> ManagerBasedRlEnvCfg:
       func=hand_cube_mdp.object_linear_speed_above,
       params={"max_linear_speed": 1.0, "asset_cfg": SceneEntityCfg("cube")},
     ),
-    "cube_pose_deviation": TerminationTermCfg(
-      func=hand_cube_mdp.object_pose_rp_position_deviation_from_reset,
-      params={
-        "max_position_error": 0.08,
-        "max_tilt_error": 0.8,
-        "asset_cfg": SceneEntityCfg("cube"),
-      },
-    ),
+    # TODO: This is continuously flagging.
+    # "cube_pose_deviation": TerminationTermCfg(
+    #    func=hand_cube_mdp.object_pose_rp_position_deviation_from_reset,
+    #    params={
+    #      "max_position_error": 0.08,
+    #      "max_tilt_error": 0.8,
+    #      "asset_cfg": SceneEntityCfg("cube"),
+    #    },
+    # ),
     "nan": TerminationTermCfg(func=envs_mdp.nan_detection),
   }
 
